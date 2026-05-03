@@ -1,0 +1,4 @@
+ALTER TABLE users
+    DROP COLUMN IF EXISTS last_name,
+    DROP COLUMN IF EXISTS birth_date,
+    DROP COLUMN IF EXISTS city;

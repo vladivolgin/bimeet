@@ -1,0 +1,25 @@
+DROP INDEX IF EXISTS idx_event_change_logs_event;
+DROP INDEX IF EXISTS idx_notifications_user;
+DROP INDEX IF EXISTS idx_carpools_event;
+DROP INDEX IF EXISTS idx_items_event;
+DROP INDEX IF EXISTS idx_poll_options_poll;
+DROP INDEX IF EXISTS idx_polls_event;
+DROP INDEX IF EXISTS idx_contributions_collection;
+DROP INDEX IF EXISTS idx_collections_event;
+DROP INDEX IF EXISTS idx_event_participants_user;
+DROP INDEX IF EXISTS idx_event_participants_event;
+DROP INDEX IF EXISTS idx_events_organizer;
+
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS event_change_logs;
+DROP TABLE IF EXISTS carpool_passengers;
+DROP TABLE IF EXISTS carpools;
+DROP TABLE IF EXISTS items;
+DROP TABLE IF EXISTS poll_votes;
+DROP TABLE IF EXISTS poll_options;
+DROP TABLE IF EXISTS polls;
+DROP TABLE IF EXISTS collection_contributions;
+DROP TABLE IF EXISTS collections;
+DROP TABLE IF EXISTS event_participants;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS users;

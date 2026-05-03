@@ -1,0 +1,2 @@
+ALTER TABLE events DROP COLUMN IF EXISTS is_public;
+ALTER TABLE events DROP COLUMN IF EXISTS max_guests;

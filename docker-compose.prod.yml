@@ -1,0 +1,124 @@
+services:
+  traefik:
+    image: traefik:v3.6
+    environment:
+      - DOCKER_API_VERSION=1.54
+    command:
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --certificatesresolvers.le.acme.email=lozzyklingers@gmail.com
+      - --certificatesresolvers.le.acme.storage=/acme/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - acme_data:/acme
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bimeet
+      POSTGRES_USER: bimeet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bimeet}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bimeet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.minio.rule=Host(`s3.bimeet.pro`)
+      - traefik.http.routers.minio.entrypoints=websecure
+      - traefik.http.routers.minio.tls.certresolver=le
+      - traefik.http.services.minio.loadbalancer.server.port=9000
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - app-net
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin} &&
+        mc mb --ignore-existing local/avatars &&
+        mc anonymous set public local/avatars
+      "
+
+  backend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/bimeet-backend:latest
+    env_file: .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-net
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/bimeet-frontend:latest
+    depends_on:
+      - backend
+    networks:
+      - app-net
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.frontend.rule=Host(`app.bimeet.pro`)
+      - traefik.http.routers.frontend.entrypoints=websecure
+      - traefik.http.routers.frontend.tls.certresolver=le
+      - traefik.http.services.frontend.loadbalancer.server.port=80
+
+  landing:
+    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/bimeet-landing:latest
+    networks:
+      - app-net
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.landing.rule=Host(`bimeet.pro`) || Host(`www.bimeet.pro`)
+      - traefik.http.routers.landing.entrypoints=websecure
+      - traefik.http.routers.landing.tls.certresolver=le
+      - traefik.http.services.landing.loadbalancer.server.port=80
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
+  acme_data:
